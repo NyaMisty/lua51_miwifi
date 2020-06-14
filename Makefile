@@ -42,7 +42,7 @@ PLATS= aix ansi bsd freebsd generic linux macosx mingw posix solaris
 
 # What to install.
 TO_BIN= lua luac
-TO_INC= lua.h luaconf.h lualib.h lauxlib.h ../etc/lua.hpp
+TO_INC= lua.h luaconf.h lualib.h lauxlib.h lnum_config.h ../etc/lua.hpp
 TO_LIB= liblua.a
 TO_MAN= lua.1 luac.1
 
@@ -124,5 +124,33 @@ lecho:
 
 # list targets that do not create files (but not all makes understand .PHONY)
 .PHONY: all $(PLATS) clean test install local none dummy echo pecho lecho
+
+luaconf.h: lnum_config.h
+lapi.c: lnum.h
+lauxlib.c: llimits.h
+lbaselib.c: llimits.h lobject.h lapi.h
+lcode.c: lnum.h
+liolib.c: lnum.h llex.h
+llex.c: lnum.h
+lnum.h: lobject.h
+lobject.c: llex.h lnum.h
+ltable.c: lnum.h
+lua.c: llimits.h
+lvm.c: llex.h lnum.h
+print.c: lnum.h
+
+luaconf.h: lnum_config.h
+lapi.c: lnum.h
+lauxlib.c: llimits.h
+lbaselib.c: llimits.h lobject.h lapi.h
+lcode.c: lnum.h
+liolib.c: lnum.h llex.h
+llex.c: lnum.h
+lnum.h: lobject.h
+lobject.c: llex.h lnum.h
+ltable.c: lnum.h
+lua.c: llimits.h
+lvm.c: llex.h lnum.h
+print.c: lnum.h
 
 # (end of Makefile)
