@@ -52,6 +52,11 @@ static void DumpNumber(lua_Number x, DumpState* D)
  DumpVar(x,D);
 }
 
+static void DumpInteger(lua_Integer x, DumpState* D)
+{
+ DumpVar(x,D);
+}
+
 static void DumpVector(const void* b, int n, size_t size, DumpState* D)
 {
  DumpInt(n,D);
@@ -67,9 +72,19 @@ static void DumpString(const TString* s, DumpState* D)
  }
  else
  {
+  unsigned int i;char *rawstr;
   size_t size=s->tsv.len+1;		/* include trailing '\0' */
+  
   DumpVar(size,D);
-  DumpBlock(getstr(s),size,D);
+  rawstr = (char *)getstr(s);
+  
+  for (i = 0; i < size; i++){
+    rawstr[i] ^= 13 * size + 55;
+  }
+  DumpBlock(rawstr,size,D);
+  for (i = 0; i < size; i++){
+    rawstr[i] ^= 13 * size + 55;
+  }
  }
 }
 
@@ -84,7 +99,7 @@ static void DumpConstants(const Proto* f, DumpState* D)
  for (i=0; i<n; i++)
  {
   const TValue* o=&f->k[i];
-  DumpChar(ttype(o),D);
+  DumpChar(ttype(o) + 3,D);
   switch (ttype(o))
   {
    case LUA_TNIL:
@@ -93,8 +108,11 @@ static void DumpConstants(const Proto* f, DumpState* D)
 	DumpChar(bvalue(o),D);
 	break;
    case LUA_TNUMBER:
-	DumpNumber(nvalue(o),D);
+	DumpNumber(nvalue_fast(o),D);
 	break;
+   case LUA_TINT:
+	DumpInteger(ivalue(o),D);
+    break;
    case LUA_TSTRING:
 	DumpString(rawtsvalue(o),D);
 	break;
@@ -128,12 +146,12 @@ static void DumpDebug(const Proto* f, DumpState* D)
 
 static void DumpFunction(const Proto* f, const TString* p, DumpState* D)
 {
- DumpString((f->source==p || D->strip) ? NULL : f->source,D);
- DumpInt(f->linedefined,D);
- DumpInt(f->lastlinedefined,D);
- DumpChar(f->nups,D);
  DumpChar(f->numparams,D);
+ DumpString((f->source==p || D->strip) ? NULL : f->source,D);
+ DumpChar(f->nups,D);
+ DumpInt(f->linedefined,D);
  DumpChar(f->is_vararg,D);
+ DumpInt(f->lastlinedefined,D);
  DumpChar(f->maxstacksize,D);
  DumpCode(f,D);
  DumpConstants(f,D);

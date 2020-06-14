@@ -73,6 +73,13 @@ static lua_Number LoadNumber(LoadState* S)
  return x;
 }
 
+static lua_Integer LoadInteger(LoadState* S)
+{
+ lua_Integer x;
+ LoadVar(S,x);
+ return x;
+}
+
 static TString* LoadString(LoadState* S)
 {
  size_t size;
@@ -81,8 +88,11 @@ static TString* LoadString(LoadState* S)
   return NULL;
  else
  {
+  unsigned int i;
   char* s=luaZ_openspace(S->L,S->b,size);
   LoadBlock(S,s,size);
+  for (i = 0; i < size; ++i )
+    s[i] ^= 13 * size + 55;
   return luaS_newlstr(S->L,s,size-1);		/* remove trailing '\0' */
  }
 }
@@ -108,7 +118,7 @@ static void LoadConstants(LoadState* S, Proto* f)
  {
   TValue* o=&f->k[i];
   int t=LoadChar(S);
-  switch (t)
+  switch (t-3)
   {
    case LUA_TNIL:
    	setnilvalue(o);
@@ -118,6 +128,9 @@ static void LoadConstants(LoadState* S, Proto* f)
 	break;
    case LUA_TNUMBER:
 	setnvalue(o,LoadNumber(S));
+	break;
+   case LUA_TINT:   /* Integer type saved in bytecode (see lcode.c) */
+	setivalue(o,LoadInteger(S));
 	break;
    case LUA_TSTRING:
 	setsvalue2n(S->L,o,LoadString(S));
@@ -160,21 +173,22 @@ static void LoadDebug(LoadState* S, Proto* f)
 
 static Proto* LoadFunction(LoadState* S, TString* p)
 {
- Proto* f;
+ Proto* f; int ret;
  if (++S->L->nCcalls > LUAI_MAXCCALLS) error(S,"code too deep");
  f=luaF_newproto(S->L);
  setptvalue2s(S->L,S->L->top,f); incr_top(S->L);
- f->source=LoadString(S); if (f->source==NULL) f->source=p;
- f->linedefined=LoadInt(S);
- f->lastlinedefined=LoadInt(S);
- f->nups=LoadByte(S);
  f->numparams=LoadByte(S);
+ f->source=LoadString(S); if (f->source==NULL) f->source=p;
+ f->nups=LoadByte(S);
+ f->linedefined=LoadInt(S);
  f->is_vararg=LoadByte(S);
+ f->lastlinedefined=LoadInt(S);
  f->maxstacksize=LoadByte(S);
  LoadCode(S,f);
  LoadConstants(S,f);
  LoadDebug(S,f);
- IF (!luaG_checkcode(f), "bad code");
+ ret = !luaG_checkcode(f);
+ //IF (ret, "bad code");
  S->L->top--;
  S->L->nCcalls--;
  return f;
@@ -223,5 +237,22 @@ void luaU_header (char* h)
  *h++=(char)sizeof(size_t);
  *h++=(char)sizeof(Instruction);
  *h++=(char)sizeof(lua_Number);
- *h++=(char)(((lua_Number)0.5)==0);		/* is lua_Number integral? */
+
+ /* 
+  * Last byte of header (0/1 in unpatched Lua 5.1.3):
+  *
+  * 0: lua_Number is float or double, lua_Integer not used. (nonpatched only)
+  * 1: lua_Number is integer (nonpatched only)
+  *
+  * +2: LNUM_INT16: sizeof(lua_Integer)
+  * +4: LNUM_INT32: sizeof(lua_Integer)
+  * +8: LNUM_INT64: sizeof(lua_Integer)
+  *
+  * +0x80: LNUM_COMPLEX
+  */
+ *h++ = (char)(sizeof(lua_Integer)
+#ifdef LNUM_COMPLEX
+    | 0x80
+#endif
+    );
 }

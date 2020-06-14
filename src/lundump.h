@@ -31,6 +31,6 @@ LUAI_FUNC void luaU_print (const Proto* f, int full);
 #define LUAC_FORMAT		0
 
 /* size of header of binary files */
-#define LUAC_HEADERSIZE		12
+#define LUAC_HEADERSIZE		16
 
 #endif
